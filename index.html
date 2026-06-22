@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>UNICUS · DIY 玩偶编辑器</title>
+<style>
+  :root{
+    /* Brand */
+    --brand-50:#F5F1FF;--brand-100:#ECE3FF;--brand-200:#D9C8FF;--brand-300:#C0A3FF;
+    --brand-400:#A57EFF;--brand-500:#8E5EFF;--brand-600:#7D49F2;--brand-700:#6938C7;
+    --brand-800:#522C99;--brand-900:#3B206B;
+    /* Neutral */
+    --n-0:#FFFFFF;--n-50:#FBFBFD;--n-100:#F4F5F8;--n-200:#E8EAF0;--n-300:#D6DAE3;
+    --n-400:#B7BFCC;--n-500:#919AAA;--n-600:#6B7280;--n-700:#4B5563;--n-800:#2D3748;--n-900:#111827;
+    /* Scene */
+    --sky-100:#E1F7FF;--sky-200:#C7EEFF;--sky-300:#A5E3FF;--sky-400:#72D2FF;--sky-500:#35B9F4;
+    --pink-100:#FFE8F0;--pink-200:#FFD1E2;--pink-300:#FFB2CF;--pink-400:#FF8DB7;--pink-500:#F26197;
+    --cream-100:#FFF8EA;--cream-200:#FFF0CF;--cream-300:#FFE2A3;--cream-400:#FFD16A;--cream-500:#F4B63D;
+    --green-50:#ECFDF3;--green-500:#12B76A;--red-50:#FEF3F2;--red-100:#FEE4E2;--red-500:#F04438;
+    /* semantic */
+    --bg-page:var(--n-50);--bg-surface:var(--n-0);--text-1:var(--n-900);--text-2:var(--n-700);
+    --text-3:var(--n-500);--border-subtle:var(--n-100);--border-default:var(--n-200);
+    /* radius */
+    --r-sm:8px;--r-md:12px;--r-card:16px;--r-sheet:24px;--r-pill:999px;
+    /* shadow */
+    --sh-xs:0 1px 2px rgba(17,24,39,.04);--sh-sm:0 4px 12px rgba(17,24,39,.06);
+    --sh-md:0 8px 24px rgba(17,24,39,.08);--sh-lg:0 12px 32px rgba(17,24,39,.10);
+    /* motion */
+    --ease-std:cubic-bezier(.2,0,0,1);--ease-soft:cubic-bezier(.22,1,.36,1);
+    --t-fast:120ms;--t-norm:180ms;--t-slow:260ms;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"PingFang SC","SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    background:#C9CDD6;color:var(--text-1);line-height:1.5;
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;overflow:hidden;
+  }
+  /* ===== Phone shell ===== */
+  .phone{
+    position:relative;width:100%;max-width:430px;height:100vh;max-height:932px;
+    background:var(--bg-page);overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 24px 60px rgba(17,24,39,.28);
+  }
+  @media(min-width:460px){.phone{border-radius:40px;height:920px;}}
+
+  /* status bar */
+  .statusbar{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px;font-size:14px;font-weight:600;color:var(--text-1);z-index:30;}
+  .statusbar .right{display:flex;gap:6px;align-items:center;font-size:13px;}
+
+  /* nav bar */
+  .nav{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+    padding:0 14px;z-index:30;}
+  .nav .icon-btn{width:36px;height:36px;border-radius:var(--r-pill);border:none;background:transparent;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--n-800);
+    transition:background var(--t-fast);}
+  .nav .icon-btn:active{background:var(--n-100);}
+  .nav .title{font-size:17px;font-weight:700;letter-spacing:.14em;color:var(--brand-600);}
+  .nav .grp{display:flex;gap:2px;background:var(--n-100);border-radius:var(--r-pill);padding:2px;}
+  .nav .grp .icon-btn{width:34px;height:30px;}
+
+  /* price pill (floats over canvas) */
+  .pricepill{position:absolute;top:92px;left:14px;z-index:20;display:flex;align-items:baseline;gap:6px;
+    background:rgba(255,255,255,.86);backdrop-filter:blur(8px);padding:6px 12px;border-radius:var(--r-pill);
+    box-shadow:var(--sh-sm);}
+  .pricepill .lbl{font-size:11px;color:var(--text-3);}
+  .pricepill .val{font-size:16px;font-weight:800;color:var(--brand-700);}
+  .pricepill .val .dn{transition:transform var(--t-norm) var(--ease-soft);display:inline-block;}
+
+  /* inspiration pill */
+  .insppill{position:absolute;top:92px;right:14px;z-index:20;display:flex;align-items:center;gap:4px;
+    background:linear-gradient(135deg,var(--brand-100),var(--sky-100));padding:6px 12px;border-radius:var(--r-pill);
+    box-shadow:var(--sh-xs);font-size:13px;font-weight:700;color:var(--brand-700);}
+
+  /* ===== Canvas / stage ===== */
+  .stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    transition:background var(--t-slow) var(--ease-std);min-height:0;}
+  /* scene backgrounds */
+  .scene{position:absolute;inset:0;transition:opacity var(--t-slow) var(--ease-std);}
+  .scene.f1{background:
+      radial-gradient(120% 80% at 50% 0%,#BFE8FF 0%,#8FD2F4 38%,#6FC0EC 55%,transparent 56%),
+      linear-gradient(#7FC8EE 0%,#A7DDF6 30%),
+      linear-gradient(#5C6B78 56%,#46535F 56%,#46535F 100%);}
+  .scene.f1::after{content:"";position:absolute;left:0;right:0;bottom:0;height:44%;
+      background:repeating-linear-gradient(90deg,#5b6770 0 14px,#6a7680 14px 28px);
+      -webkit-mask:linear-gradient(#000,transparent);mask:linear-gradient(#000,transparent);opacity:.5;}
+  .scene.night{background:
+      radial-gradient(90% 60% at 30% 20%,#5B3A8A 0%,transparent 60%),
+      radial-gradient(80% 60% at 80% 30%,#B5468B 0%,transparent 55%),
+      linear-gradient(#2A1A4A,#3B206B 60%,#52306B);}
+  .scene.sea{background:linear-gradient(#Bdeafc 0%,#9fe0f5 40%,#FFE9B8 40%,#FCD98C 100%);}
+  .scene.sakura{background:radial-gradient(120% 80% at 50% 0%,#FFE7F0,#FFD1E2 60%,#FFB9D3);}
+  .scene.studio{background:linear-gradient(135deg,#ECE3FF,#E1F7FF);}
+  .scene-emoji{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:space-around;
+    font-size:30px;opacity:.5;padding-top:18px;pointer-events:none;filter:saturate(1.1);}
+
+  /* art frame (the white wavy card seen in mockups) */
+  .artframe{position:relative;width:78%;max-width:300px;aspect-ratio:3/4;margin-top:18px;
+    border-radius:30px;padding:10px;
+    background:rgba(255,255,255,.34);box-shadow:0 10px 30px rgba(17,24,39,.12),inset 0 0 0 6px rgba(255,255,255,.45);
+    backdrop-filter:blur(2px);}
+  .inner-scene{position:absolute;inset:10px;border-radius:22px;overflow:hidden;}
+
+  .banner{position:absolute;top:8%;left:0;right:0;text-align:center;z-index:6;
+    font-size:26px;font-weight:800;letter-spacing:1px;color:#fff;font-style:italic;
+    text-shadow:0 2px 0 rgba(124,73,242,.35),0 4px 10px rgba(0,0,0,.12);
+    -webkit-text-stroke:.5px rgba(124,73,242,.25);pointer-events:none;}
+
+  /* ===== Doll ===== */
+  .doll{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);z-index:8;
+    width:128px;display:flex;flex-direction:column;align-items:center;
+    transition:transform var(--t-slow) var(--ease-soft);cursor:pointer;}
+  .doll .head-wrap{position:relative;width:96px;}
+  .hair{position:absolute;top:-9px;left:-7px;right:-7px;height:46px;background:#1c2230;
+    border-radius:24px 24px 16px 16px;z-index:2;}
+  .hair::after{content:"";position:absolute;bottom:-8px;right:8px;width:18px;height:16px;background:#1c2230;
+    border-radius:0 0 12px 12px;}
+  .head{position:relative;width:96px;height:86px;background:#FFE0C4;border-radius:20px;z-index:3;
+    box-shadow:inset 0 -6px 10px rgba(0,0,0,.05);overflow:hidden;}
+  .face{position:absolute;inset:0;}
+  .brow{position:absolute;top:30px;width:16px;height:5px;background:#5a3b2a;border-radius:3px;transition:all var(--t-norm);}
+  .brow.l{left:20px;}.brow.r{right:20px;}
+  .eye{position:absolute;top:38px;width:15px;height:18px;background:#3a2a22;border-radius:50%;transition:all var(--t-norm);}
+  .eye::after{content:"";position:absolute;top:3px;right:3px;width:5px;height:5px;background:#fff;border-radius:50%;}
+  .eye.l{left:20px;}.eye.r{right:20px;}
+  .cheek{position:absolute;top:54px;width:13px;height:8px;background:rgba(255,140,170,.6);border-radius:50%;opacity:0;transition:opacity var(--t-norm);}
+  .cheek.l{left:14px;}.cheek.r{right:14px;}
+  .mouth{position:absolute;left:50%;top:62px;transform:translateX(-50%);width:18px;height:10px;
+    background:#C2455B;border-radius:0 0 12px 12px;transition:all var(--t-norm);}
+  .glasses{position:absolute;top:34px;left:50%;transform:translateX(-50%);width:62px;height:22px;opacity:0;
+    transition:opacity var(--t-norm);z-index:4;display:flex;justify-content:space-between;align-items:center;}
+  .glasses span{width:24px;height:20px;border:3px solid #222;border-radius:6px;background:rgba(120,180,255,.25);}
+  .glasses::before{content:"";position:absolute;top:9px;left:24px;right:24px;height:3px;background:#222;}
+
+  .neck{width:30px;height:10px;background:#F2CBA8;margin-top:-2px;z-index:1;border-radius:0 0 6px 6px;}
+  .body{position:relative;width:84px;height:62px;background:#14213D;border-radius:14px 14px 10px 10px;margin-top:-1px;z-index:4;
+    display:flex;align-items:center;justify-content:center;box-shadow:inset 0 4px 8px rgba(255,255,255,.06);
+    transition:background var(--t-norm);}
+  .body .logo{font-size:9px;font-weight:800;color:#fff;opacity:.85;letter-spacing:.5px;}
+  .arm{position:absolute;top:2px;width:18px;height:46px;background:#14213D;border-radius:10px;z-index:3;transition:background var(--t-norm);}
+  .arm.l{left:-12px;transform:rotate(18deg);}.arm.r{right:-12px;transform:rotate(-18deg);}
+  .legs{display:flex;gap:6px;margin-top:-2px;z-index:3;}
+  .leg{width:26px;height:30px;background:#0E1830;border-radius:0 0 6px 6px;}
+  .shoes{display:flex;gap:6px;margin-top:-2px;z-index:3;}
+  .shoe{width:30px;height:12px;background:#fff;border-radius:6px 6px 4px 4px;box-shadow:var(--sh-xs);}
+  .base{width:120px;height:16px;background:linear-gradient(#C99A6A,#A9764A);border-radius:8px;margin-top:2px;z-index:2;
+    box-shadow:0 6px 10px rgba(0,0,0,.15);}
+
+  /* handheld item */
+  .handheld{position:absolute;z-index:9;font-size:30px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.2));
+    transition:transform var(--t-norm) var(--ease-soft);cursor:pointer;}
+  /* ornaments */
+  .ornament{position:absolute;z-index:7;cursor:pointer;display:flex;flex-direction:column;align-items:center;
+    transition:transform var(--t-norm) var(--ease-soft);}
+  .ornament .oico{font-size:30px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.18));}
+  .ornament .oplate{margin-top:-2px;background:#fff;border-radius:6px;padding:2px 6px;font-size:8px;font-weight:700;
+    color:var(--brand-700);box-shadow:var(--sh-xs);white-space:nowrap;}
+
+  /* selection box */
+  .selbox{position:absolute;border:2px solid var(--brand-500);border-radius:8px;z-index:15;pointer-events:none;
+    box-shadow:0 0 0 4px rgba(142,94,255,.12);animation:selpop var(--t-norm) var(--ease-soft);}
+  @keyframes selpop{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:scale(1);}}
+  .selbox .h{position:absolute;width:24px;height:24px;border-radius:var(--r-pill);background:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:var(--sh-sm);pointer-events:auto;cursor:pointer;}
+  .selbox .h.del{top:-12px;left:-12px;color:var(--red-500);font-weight:700;}
+  .selbox .h.rot{bottom:-12px;right:-12px;color:var(--brand-600);}
+  .selbox .h.scale{top:-12px;right:-12px;color:var(--brand-600);}
+
+  /* undo/redo */
+  .udr{position:absolute;left:10px;bottom:108px;z-index:18;display:flex;flex-direction:column;gap:8px;}
+  .udr button{width:40px;height:40px;border-radius:14px;border:none;background:rgba(255,255,255,.7);
+    backdrop-filter:blur(6px);box-shadow:var(--sh-sm);font-size:18px;color:var(--n-700);cursor:pointer;
+    transition:transform var(--t-fast),background var(--t-fast);}
+  .udr button:active{transform:scale(.9);}
+  .udr button:disabled{opacity:.4;cursor:not-allowed;}
+
+  /* mascot */
+  .mascot{position:absolute;left:14px;bottom:18px;z-index:18;width:62px;text-align:center;animation:bob 3s var(--ease-soft) infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+  .mascot .m{font-size:42px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.18));}
+  .mascot .cap{font-size:9px;color:var(--text-2);background:rgba(255,255,255,.8);border-radius:var(--r-pill);
+    padding:1px 6px;margin-top:2px;display:inline-block;box-shadow:var(--sh-xs);}
+
+  /* confirm CTA */
+  .confirm{position:absolute;right:14px;bottom:22px;z-index:18;height:42px;padding:0 20px;border:none;cursor:pointer;
+    border-radius:var(--r-pill);background:var(--brand-500);color:#fff;font-size:14px;font-weight:700;
+    display:flex;align-items:center;gap:6px;box-shadow:0 6px 16px rgba(142,94,255,.4);
+    transition:transform var(--t-fast);}
+  .confirm:active{transform:scale(.96);}
+
+  /* hint (empty state) */
+  .hint{position:absolute;left:0;right:0;bottom:14px;text-align:center;font-size:12px;color:var(--text-3);z-index:5;}
+
+  /* ===== Bottom editor ===== */
+  .editor{flex-shrink:0;background:var(--bg-surface);border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+    box-shadow:0 -6px 20px rgba(17,24,39,.06);z-index:25;padding-bottom:env(safe-area-inset-bottom);}
+
+  /* main tabs */
+  .tabs{display:flex;padding:6px 4px 4px;border-bottom:1px solid var(--border-subtle);}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 6px;border:none;background:none;
+    cursor:pointer;color:var(--text-3);font-size:12px;font-weight:600;position:relative;transition:color var(--t-fast);}
+  .tab .ti{font-size:20px;line-height:1;transition:transform var(--t-norm) var(--ease-soft);}
+  .tab.active{color:var(--brand-600);}
+  .tab.active .ti{transform:translateY(-1px) scale(1.12);}
+  .tab.active::after{content:"";position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);
+    width:22px;height:3px;border-radius:3px;background:var(--brand-500);}
+
+  /* panel */
+  .panel{padding:12px 14px 16px;min-height:206px;}
+
+  /* sub-tabs (chips) */
+  .subtabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none;}
+  .subtabs::-webkit-scrollbar{display:none;}
+  .chip{flex-shrink:0;padding:7px 15px;border-radius:var(--r-pill);background:var(--n-100);color:var(--text-2);
+    font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all var(--t-fast);}
+  .chip.active{background:var(--brand-500);color:#fff;box-shadow:0 3px 8px rgba(142,94,255,.35);}
+
+  /* AI generate row */
+  .airow{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .aiinput{flex:1;display:flex;align-items:center;gap:8px;height:42px;padding:0 14px;border-radius:var(--r-pill);
+    background:var(--n-100);border:1px solid var(--border-subtle);}
+  .aiinput .ci{color:var(--brand-500);font-size:16px;}
+  .aiinput input{flex:1;border:none;background:none;outline:none;font-size:14px;color:var(--text-1);font-family:inherit;}
+  .aiinput input::placeholder{color:var(--text-3);}
+  .gen-btn{height:42px;padding:0 20px;border:none;border-radius:var(--r-pill);background:var(--brand-500);color:#fff;
+    font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;transition:transform var(--t-fast),opacity var(--t-fast);}
+  .gen-btn:active{transform:scale(.95);}
+  .gen-btn:disabled{opacity:.5;}
+
+  .costtag{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-3);margin:-4px 0 12px;}
+  .costtag b{color:var(--brand-600);}
+  .costtag .red{color:var(--red-500);}
+
+  /* preset reel */
+  .reel{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 6px;scrollbar-width:none;}
+  .reel::-webkit-scrollbar{display:none;}
+  .pcard{flex-shrink:0;width:84px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+  .pthumb{width:78px;height:78px;border-radius:var(--r-pill);background:var(--sky-100);display:flex;align-items:center;
+    justify-content:center;font-size:34px;position:relative;border:3px solid transparent;overflow:hidden;
+    transition:border-color var(--t-fast),transform var(--t-fast);box-shadow:var(--sh-xs);}
+  .pcard:active .pthumb{transform:scale(.94);}
+  .pcard.active .pthumb{border-color:var(--brand-500);}
+  .pcard.active .pthumb::after{content:"✓";position:absolute;top:2px;right:2px;width:18px;height:18px;
+    background:var(--brand-500);color:#fff;border-radius:var(--r-pill);font-size:11px;display:flex;
+    align-items:center;justify-content:center;font-weight:700;}
+  .plabel{font-size:11px;color:var(--text-2);font-weight:600;white-space:nowrap;}
+  .pcard.active .plabel{color:var(--brand-600);}
+  /* "新" badge */
+  .pnew{position:absolute;top:2px;left:2px;background:var(--pink-400);color:#fff;font-size:8px;font-weight:700;
+    padding:1px 5px;border-radius:var(--r-pill);}
+  /* edit accessory link under active card */
+  .pedit{font-size:10px;color:var(--brand-600);background:var(--brand-50);padding:2px 8px;border-radius:var(--r-pill);}
+
+  /* generating progress ring */
+  .pthumb.loading{background:var(--brand-50);}
+  .ring{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;
+    font-weight:800;color:var(--brand-600);}
+  .ring svg{position:absolute;inset:0;}
+  .ring circle{fill:none;stroke-width:5;}
+  .ring .bg{stroke:var(--brand-100);}
+  .ring .fg{stroke:var(--brand-500);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;
+    transition:stroke-dashoffset .35s var(--ease-std);}
+
+  /* mini face thumb for expression presets */
+  .facethumb{background:#FFE0C4;}
+  .ft-eye{position:absolute;width:9px;height:11px;background:#3a2a22;border-radius:50%;top:30px;}
+  .ft-eye.l{left:24px;}.ft-eye.r{right:24px;}
+  .ft-mouth{position:absolute;left:50%;transform:translateX(-50%);bottom:20px;width:14px;height:7px;
+    background:#C2455B;border-radius:0 0 10px 10px;}
+  .ft-brow{position:absolute;width:11px;height:3px;background:#5a3b2a;border-radius:2px;top:23px;}
+  .ft-brow.l{left:25px;}.ft-brow.r{right:25px;}
+
+  /* layer list */
+  .layerlist{display:flex;flex-direction:column;gap:8px;max-height:170px;overflow-y:auto;padding-top:2px;}
+  .layeritem{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--n-50);border-radius:var(--r-md);
+    border:1px solid var(--border-subtle);}
+  .layeritem .del{width:24px;height:24px;border-radius:var(--r-pill);background:var(--red-500);color:#fff;border:none;
+    font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .layeritem .lthumb{width:32px;height:32px;border-radius:var(--r-sm);background:var(--sky-100);display:flex;
+    align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .layeritem .lname{flex:1;font-size:13px;font-weight:600;color:var(--text-2);}
+  .layeritem .drag{color:var(--text-3);font-size:18px;cursor:grab;}
+  .layer-empty{text-align:center;color:var(--text-3);font-size:13px;padding:30px 0;}
+
+  /* ===== Toast ===== */
+  .toast-wrap{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:60;display:flex;
+    flex-direction:column;gap:8px;align-items:center;pointer-events:none;}
+  .toast{background:rgba(17,24,39,.86);color:#fff;font-size:13px;font-weight:600;padding:10px 18px;
+    border-radius:var(--r-pill);box-shadow:var(--sh-md);animation:toastin .3s var(--ease-soft);}
+  @keyframes toastin{from{opacity:0;transform:translateY(8px) scale(.95);}to{opacity:1;transform:none;}}
+
+  /* floating price-change bubble near canvas */
+  .pricebubble{position:absolute;z-index:16;background:var(--brand-500);color:#fff;font-size:12px;font-weight:700;
+    padding:6px 12px;border-radius:var(--r-pill);box-shadow:var(--sh-md);pointer-events:none;
+    animation:bubble 1.4s var(--ease-soft) forwards;}
+  @keyframes bubble{0%{opacity:0;transform:translate(-50%,4px) scale(.9);}15%{opacity:1;transform:translate(-50%,-2px) scale(1);}
+    80%{opacity:1;transform:translate(-50%,-8px);}100%{opacity:0;transform:translate(-50%,-18px);}}
+
+  /* ===== Sheets / overlay ===== */
+  .overlay{position:absolute;inset:0;background:rgba(17,24,39,.48);z-index:50;opacity:0;visibility:hidden;
+    transition:opacity var(--t-norm);display:flex;align-items:flex-end;}
+  .overlay.show{opacity:1;visibility:visible;}
+  .sheet{width:100%;background:#fff;border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:8px 18px calc(24px + env(safe-area-inset-bottom));
+    transform:translateY(100%);transition:transform var(--t-slow) var(--ease-soft);max-height:86%;overflow-y:auto;}
+  .overlay.show .sheet{transform:translateY(0);}
+  .grab{width:40px;height:4px;background:var(--n-200);border-radius:var(--r-pill);margin:6px auto 14px;}
+  .sheet h3{font-size:18px;font-weight:700;margin-bottom:4px;}
+  .sheet .sub{font-size:13px;color:var(--text-3);margin-bottom:16px;}
+
+  /* order summary */
+  .orow{display:flex;justify-content:space-between;padding:11px 0;font-size:14px;border-bottom:1px solid var(--border-subtle);}
+  .orow .k{color:var(--text-2);display:flex;align-items:center;gap:8px;}
+  .orow .v{font-weight:600;color:var(--text-1);}
+  .orow .em{font-size:18px;}
+  .total{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0;}
+  .total .k{font-size:15px;font-weight:600;}
+  .total .v{font-size:26px;font-weight:800;color:var(--brand-700);}
+  .btn-primary{width:100%;height:50px;border:none;border-radius:var(--r-pill);background:var(--brand-500);color:#fff;
+    font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(142,94,255,.4);transition:transform var(--t-fast);}
+  .btn-primary:active{transform:scale(.98);}
+  .btn-line{width:100%;height:46px;border:1px solid var(--border-default);border-radius:var(--r-pill);background:#fff;
+    color:var(--text-2);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;}
+
+  /* menu sheet rows */
+  .menurow{display:flex;align-items:center;gap:14px;padding:14px 4px;font-size:15px;border-bottom:1px solid var(--border-subtle);cursor:pointer;}
+  .menurow .mi{font-size:20px;width:26px;text-align:center;}
+  .menurow .mt{flex:1;font-weight:600;color:var(--text-1);}
+  .menurow .ms{font-size:12px;color:var(--text-3);}
+  .switch{width:46px;height:26px;border-radius:var(--r-pill);background:var(--n-300);position:relative;transition:background var(--t-norm);flex-shrink:0;}
+  .switch.on{background:var(--brand-500);}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;
+    box-shadow:var(--sh-xs);transition:transform var(--t-norm) var(--ease-soft);}
+  .switch.on::after{transform:translateX(20px);}
+
+  /* ===== Simple mode banner ===== */
+  .modetag{position:absolute;top:92px;left:50%;transform:translateX(-50%);z-index:21;
+    background:rgba(59,32,107,.82);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:var(--r-pill);
+    display:none;}
+  body.simple .modetag{display:block;}
+  body.simple .editor{display:none;}
+  body.simple .simplebar{display:flex;}
+  .simplebar{display:none;flex-shrink:0;gap:10px;padding:14px 16px calc(16px + env(safe-area-inset-bottom));
+    background:#fff;border-radius:var(--r-sheet) var(--r-sheet) 0 0;box-shadow:0 -6px 20px rgba(17,24,39,.06);z-index:25;}
+  .simplebar button{flex:1;height:50px;border-radius:var(--r-pill);font-size:15px;font-weight:700;cursor:pointer;border:none;}
+  .simplebar .reroll{background:var(--brand-50);color:var(--brand-700);border:1px solid var(--brand-200);flex:0 0 130px;}
+  .simplebar .order{background:var(--brand-500);color:#fff;box-shadow:0 6px 16px rgba(142,94,255,.4);}
+
+  /* onboarding 命题 banner */
+  .onboard{position:absolute;inset:0;z-index:80;background:linear-gradient(160deg,var(--brand-600),var(--brand-800));
+    display:flex;flex-direction:column;color:#fff;padding:0 22px;transition:opacity var(--t-slow),visibility var(--t-slow);}
+  .onboard.hide{opacity:0;visibility:hidden;}
+  .onboard .ob-top{padding-top:64px;text-align:center;}
+  .onboard .ob-logo{font-size:18px;font-weight:800;letter-spacing:.3em;}
+  .onboard .ob-tag{font-size:12px;opacity:.8;margin-top:6px;}
+  .ob-card{margin-top:26px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:var(--r-card);
+    padding:16px;backdrop-filter:blur(6px);}
+  .ob-card .lbl{font-size:11px;font-weight:700;color:var(--cream-300);letter-spacing:.1em;}
+  .ob-card h2{font-size:21px;font-weight:800;margin:8px 0 6px;}
+  .ob-card p{font-size:13px;line-height:1.6;opacity:.86;}
+  .ob-list{margin-top:22px;display:flex;flex-direction:column;gap:12px;}
+  .ob-li{display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.08);border-radius:var(--r-md);padding:12px 14px;}
+  .ob-li .n{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;
+    justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
+  .ob-li .t{font-size:13px;}.ob-li .t b{font-weight:700;}
+  .ob-cta{margin-top:auto;margin-bottom:30px;}
+  .ob-cta button{width:100%;height:52px;border:none;border-radius:var(--r-pill);background:#fff;color:var(--brand-700);
+    font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.2);}
+  .ob-mode{display:flex;gap:10px;margin-top:14px;}
+  .ob-mode button{flex:1;height:44px;border-radius:var(--r-pill);font-size:13px;font-weight:700;cursor:pointer;
+    border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;transition:all var(--t-fast);}
+  .ob-mode button.sel{background:#fff;color:var(--brand-700);border-color:#fff;}
+
+  .scene-float{position:absolute;font-size:22px;opacity:.85;pointer-events:none;
+    animation:twinkle 2.4s var(--ease-soft) infinite;}
+  @keyframes twinkle{0%,100%{opacity:.4;transform:scale(.9);}50%{opacity:1;transform:scale(1.1);}}
+</style>
+</head>
+<body class="expert">
+<div class="phone" id="phone">
+
+  <!-- ======= ONBOARDING (命题驱动入口) ======= -->
+  <div class="onboard" id="onboard">
+    <div class="ob-top">
+      <div class="ob-logo">U N I C U S</div>
+      <div class="ob-tag">场景 · 时刻 · 定格 · 产品</div>
+    </div>
+    <div class="ob-card">
+      <div class="lbl">🏆 本期命题 · 热点场景</div>
+      <h2>我的世界杯高光时刻</h2>
+      <p>上传你的照片，AI 把你变成赛场上的足球小将。专属球衣、奖杯、赛道场景已为你配好，微调即可定格成实体摆件。</p>
+    </div>
+    <div class="ob-list">
+      <div class="ob-li"><div class="n">1</div><div class="t"><b>上传素材</b> · 照片 / 文字 / IP 文件</div></div>
+      <div class="ob-li"><div class="n">2</div><div class="t"><b>AI 生成玩偶</b> · 自动搭配头+身体+配件+底座</div></div>
+      <div class="ob-li"><div class="n">3</div><div class="t"><b>编辑器精修</b> · 表情 / 摆件 / 背景 / 手持物</div></div>
+    </div>
+    <div class="ob-cta">
+      <div class="ob-mode">
+        <button id="mode-simple">🪄 傻瓜模式</button>
+        <button id="mode-expert" class="sel">🎛️ 专家模式</button>
+      </div>
+      <button id="enter-btn" style="margin-top:14px;">开始创作 →</button>
+    </div>
+  </div>
+
+  <!-- ======= STATUS BAR ======= -->
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="right">📶 &nbsp;🔋</span>
+  </div>
+
+  <!-- ======= NAV ======= -->
+  <div class="nav">
+    <button class="icon-btn" id="back-btn" title="返回">‹</button>
+    <span class="title">UNICUS</span>
+    <div class="grp">
+      <button class="icon-btn" id="menu-btn" title="更多">•••</button>
+      <button class="icon-btn" id="share-btn" title="发布社区">◎</button>
+    </div>
+  </div>
+
+  <!-- ======= STAGE ======= -->
+  <div class="stage" id="stage">
+    <div class="scene f1" id="scene"></div>
+    <div class="scene-emoji" id="sceneEmoji"></div>
+
+    <div class="pricepill"><span class="lbl">当前价格</span><span class="val">¥<span id="priceVal">279</span></span></div>
+    <div class="insppill">✦ 灵感值 <span id="inspVal">1000</span></div>
+    <div class="modetag">🪄 傻瓜模式 · AI 已自动搭配</div>
+
+    <!-- doll + elements get injected here -->
+    <div class="banner" id="banner">HAPPY BIRTHDAY</div>
+
+    <div class="doll" id="doll" data-el="doll">
+      <div class="head-wrap">
+        <div class="hair"></div>
+        <div class="head">
+          <div class="face" id="face">
+            <div class="brow l" id="browL"></div><div class="brow r" id="browR"></div>
+            <div class="eye l" id="eyeL"></div><div class="eye r" id="eyeR"></div>
+            <div class="cheek l" id="cheekL"></div><div class="cheek r" id="cheekR"></div>
+            <div class="mouth" id="mouth"></div>
+            <div class="glasses" id="glasses"><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="neck"></div>
+      <div class="body" id="body"><span class="logo" id="bodyLogo">UNICUS</span>
+        <div class="arm l"></div><div class="arm r"></div>
+      </div>
+      <div class="legs"><div class="leg"></div><div class="leg"></div></div>
+      <div class="shoes"><div class="shoe"></div><div class="shoe"></div></div>
+      <div class="base"></div>
+    </div>
+
+    <!-- selection box -->
+    <div class="selbox" id="selbox" style="display:none">
+      <div class="h del" id="selDel">✕</div>
+      <div class="h scale">⤢</div>
+      <div class="h rot">↻</div>
+    </div>
+
+    <!-- undo / redo -->
+    <div class="udr">
+      <button id="undoBtn" title="撤销">↺</button>
+      <button id="redoBtn" title="重做">↻</button>
+    </div>
+
+    <!-- mascot -->
+    <div class="mascot"><div class="m">🦸</div><div class="cap">小布助手</div></div>
+
+    <!-- confirm -->
+    <button class="confirm" id="confirmBtn">就这样 ›</button>
+
+    <div class="hint" id="hint">请点击作品不同区域进行编辑</div>
+  </div>
+
+  <!-- ======= SIMPLE MODE BAR ======= -->
+  <div class="simplebar">
+    <button class="reroll" id="rerollBtn">↻ 换一个</button>
+    <button class="order" id="simpleOrder">下单 · ¥<span class="sp">279</span></button>
+  </div>
+
+  <!-- ======= EXPERT EDITOR ======= -->
+  <div class="editor" id="editor">
+    <div class="tabs">
+      <button class="tab active" data-tab="face"><span class="ti">😀</span>表情</button>
+      <button class="tab" data-tab="ornament"><span class="ti">🧩</span>摆件</button>
+      <button class="tab" data-tab="bg"><span class="ti">🖼️</span>背景</button>
+      <button class="tab" data-tab="hold"><span class="ti">🤾</span>手持物</button>
+    </div>
+    <div class="panel" id="panel"></div>
+  </div>
+
+  <!-- toast / bubble layer -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <!-- ======= MENU SHEET ======= -->
+  <div class="overlay" id="menuOverlay">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>编辑器设置</h3>
+      <div class="sub">切换模式与作品操作</div>
+      <div class="menurow" id="toggleModeRow">
+        <span class="mi">🎛️</span>
+        <div style="flex:1"><div class="mt">专家模式</div><div class="ms">开启 PRO 编辑，呈现更多组件</div></div>
+        <div class="switch on" id="modeSwitch"></div>
+      </div>
+      <div class="menurow" id="favRow"><span class="mi">⭐</span><div class="mt">收藏当前搭配</div><span class="ms">›</span></div>
+      <div class="menurow" id="draftRow"><span class="mi">💾</span><div class="mt">保存草稿</div><span class="ms">›</span></div>
+      <div class="menurow" id="resetRow"><span class="mi">🔄</span><div class="mt">重置作品</div><span class="ms">›</span></div>
+      <button class="btn-line" onclick="closeSheet('menuOverlay')" style="margin-top:16px">关闭</button>
+    </div>
+  </div>
+
+  <!-- ======= ORDER SHEET ======= -->
+  <div class="overlay" id="orderOverlay">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>确认你的作品</h3>
+      <div class="sub" id="orderSub">UNICUS 定制玩偶 · 我的世界杯高光时刻</div>
+      <div id="orderRows"></div>
+      <div class="total"><span class="k">合计</span><span class="v">¥<span id="orderTotal">279</span></span></div>
+      <button class="btn-primary" id="payBtn">立即下单</button>
+      <button class="btn-line" id="publishBtn">一键发布到社区</button>
+    </div>
+  </div>
+
+  <!-- ======= PUBLISH SHEET ======= -->
+  <div class="overlay" id="pubOverlay">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>发布到作品广场</h3>
+      <div class="sub">生成图文分享，其他用户可一键下单或二次编辑</div>
+      <div style="background:var(--brand-50);border-radius:var(--r-card);padding:16px;text-align:center;margin-bottom:14px;">
+        <div style="font-size:46px">🏆⚽🧒</div>
+        <div style="font-size:14px;font-weight:700;margin-top:6px;">我的世界杯高光时刻</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px;">#世界杯 #足球小将 #UNICUS定制</div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:space-around;font-size:12px;color:var(--text-2);text-align:center;margin-bottom:18px;">
+        <div>💬<br>微信</div><div>📕<br>小红书</div><div>🎵<br>抖音</div><div>🔗<br>链接</div><div>🖼️<br>海报</div>
+      </div>
+      <button class="btn-primary" onclick="closeSheet('pubOverlay');toast('🎉 已发布到作品广场')">确认发布</button>
+      <button class="btn-line" onclick="closeSheet('pubOverlay')">再想想</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   UNICUS DIY Editor — interactive prototype
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+/* ---------- DATA ---------- */
+const BASE_PRICE = 279;
+
+// expression feature option sets
+const FACE_DATA = {
+  recommend:{label:'推荐', presets:[
+    {id:'biz', name:'商务少年', eyes:'calm', brow:'flat', mouth:'smile', cheek:false},
+    {id:'cute', name:'可爱笑脸', eyes:'round', brow:'soft', mouth:'open', cheek:true, badge:'专属表情'},
+    {id:'wit',  name:'古灵精怪', eyes:'wink', brow:'arch', mouth:'tongue', cheek:true},
+  ]},
+  eye:{label:'眼睛', presets:[
+    {id:'round',name:'圆眼',eyes:'round'},{id:'calm',name:'微笑眼',eyes:'calm'},
+    {id:'wink',name:'眨眼',eyes:'wink'},{id:'star',name:'星星眼',eyes:'star'},
+  ]},
+  brow:{label:'眉毛', presets:[
+    {id:'flat',name:'一字眉',brow:'flat'},{id:'thick',name:'粗眉毛',brow:'thick'},
+    {id:'arch',name:'弯弯眉',brow:'arch'},{id:'soft',name:'柔和眉',brow:'soft'},
+  ]},
+  mouth:{label:'嘴巴', presets:[
+    {id:'tongue',name:'吐舌头',mouth:'tongue'},{id:'open',name:'露齿笑',mouth:'open'},
+    {id:'smile',name:'乖巧',mouth:'smile'},{id:'o',name:'惊讶',mouth:'o'},
+  ]},
+  glasses:{label:'眼镜', presets:[
+    {id:'none',name:'无',glasses:'none'},{id:'sun',name:'墨镜',glasses:'sun'},
+    {id:'round',name:'可爱圆框',glasses:'round'},{id:'goggle',name:'护目镜',glasses:'goggle'},
+  ]},
+  sticker:{label:'贴纸', presets:[
+    {id:'blush',name:'腮红',sticker:'blush'},{id:'tear',name:'泪滴',sticker:'tear'},
+    {id:'star',name:'星星',sticker:'star'},{id:'heart',name:'爱心',sticker:'heart'},
+  ]},
+};
+const FACE_SUBTABS = ['recommend','eye','brow','mouth','glasses','sticker','layer'];
+
+const BG_PRESETS = [
+  {id:'f1', name:'F1赛道', scene:'f1', emoji:'🏁', cur:true},
+  {id:'night', name:'都市夜景', scene:'night', emoji:'🌃'},
+  {id:'sea', name:'海边日落', scene:'sea', emoji:'🏖️'},
+  {id:'sakura', name:'樱花季', scene:'sakura', emoji:'🌸'},
+  {id:'studio', name:'梦幻棚拍', scene:'studio', emoji:'✨'},
+];
+const ORN_PRESETS = [
+  {id:'trophy', name:'冠军奖杯', emoji:'🏆', price:10},
+  {id:'car', name:'红色赛车', emoji:'🏎️', price:10},
+  {id:'hero', name:'奥特曼', emoji:'🦸', price:10, badge:'专属'},
+  {id:'cake', name:'生日蛋糕', emoji:'🎂', price:10},
+  {id:'cam', name:'复古相机', emoji:'📷', price:10},
+];
+const HOLD_PRESETS = [
+  {id:'ball', name:'足球', emoji:'⚽', price:20, cur:true},
+  {id:'flag', name:'冠军旗', emoji:'🚩', price:20},
+  {id:'mic', name:'话筒', emoji:'🎤', price:20},
+  {id:'flower', name:'花束', emoji:'💐', price:20},
+];
+
+const GEN_COST = {bg:50, ornament:30, hold:30};
+
+/* ---------- STATE ---------- */
+let state = {
+  price: BASE_PRICE,
+  insp: 1000,
+  tab: 'face',
+  faceSub: 'recommend',
+  face: {eyes:'round', brow:'soft', mouth:'open', glasses:'none', sticker:'blush', cheek:true, facePreset:'cute'},
+  bg: 'f1',
+  ornaments: [  // currently on canvas
+    {id:'hero', name:'奥特曼', emoji:'🦸', x:24, y:58, price:10},
+    {id:'car',  name:'红色赛车', emoji:'🏎️', x:40, y:74, price:10},
+  ],
+  holds: [ {id:'ball', name:'足球', emoji:'⚽', x:30, y:18, price:20} ],
+  selected: null, // {type:'ornament'|'hold'|'doll', id}
+  genPresets: {bg:[], ornament:[], hold:[]}, // AI-generated extra presets
+};
+let history = [], future = [];
+
+function snapshot(){
+  history.push(JSON.stringify({price:state.price, face:state.face, bg:state.bg,
+    ornaments:state.ornaments, holds:state.holds, genPresets:state.genPresets}));
+  if(history.length>40) history.shift();
+  future = [];
+  updateUndoRedo();
+}
+function restore(str){
+  const s = JSON.parse(str);
+  Object.assign(state, s);
+  renderAll();
+}
+function undo(){
+  if(!history.length) return;
+  future.push(JSON.stringify({price:state.price, face:state.face, bg:state.bg,
+    ornaments:state.ornaments, holds:state.holds, genPresets:state.genPresets}));
+  restore(history.pop());
+  updateUndoRedo(); toast('已撤销');
+}
+function redo(){
+  if(!future.length) return;
+  history.push(JSON.stringify({price:state.price, face:state.face, bg:state.bg,
+    ornaments:state.ornaments, holds:state.holds, genPresets:state.genPresets}));
+  restore(future.pop());
+  updateUndoRedo(); toast('已重做');
+}
+function updateUndoRedo(){
+  $('#undoBtn').disabled = !history.length;
+  $('#redoBtn').disabled = !future.length;
+}
+
+/* ---------- PRICE ---------- */
+function recalcPrice(){
+  let p = BASE_PRICE;
+  state.ornaments.forEach(o=>p+=o.price);
+  state.holds.forEach(h=>p+=h.price);
+  state.price = p;
+}
+function renderPrice(delta){
+  recalcPrice();
+  const el = $('#priceVal');
+  el.textContent = state.price;
+  $$('.simplebar .sp').forEach(s=>s.textContent=state.price);
+  if(delta){
+    const sign = delta>0?'+':'−';
+    priceBubble(`${sign}¥${Math.abs(delta)}`);
+  }
+}
+function priceBubble(txt){
+  const b=document.createElement('div');
+  b.className='pricebubble';
+  b.style.left='62px'; b.style.top='118px';
+  b.textContent=txt;
+  $('#stage').appendChild(b);
+  setTimeout(()=>b.remove(),1400);
+}
+
+/* ---------- INSPIRATION ---------- */
+function renderInsp(){ $('#inspVal').textContent = state.insp; }
+
+/* ---------- FACE RENDER ---------- */
+function applyFacePreset(p){
+  if(p.eyes) state.face.eyes=p.eyes;
+  if(p.brow) state.face.brow=p.brow;
+  if(p.mouth) state.face.mouth=p.mouth;
+  if(p.glasses) state.face.glasses=p.glasses;
+  if(p.sticker) state.face.sticker=p.sticker;
+  if('cheek' in p) state.face.cheek=p.cheek;
+}
+function renderFace(){
+  const f=state.face;
+  const eyeL=$('#eyeL'),eyeR=$('#eyeR');
+  // eyes
+  const eyeStyles={
+    round:{h:'18px',r:'50%',bg:'#3a2a22',t:'38px'},
+    calm:{h:'7px',r:'10px 10px 0 0',bg:'#3a2a22',t:'44px'},
+    wink:{h:'18px',r:'50%',bg:'#3a2a22',t:'38px'},
+    star:{h:'18px',r:'50%',bg:'#7D49F2',t:'38px'},
+  };
+  const es=eyeStyles[f.eyes]||eyeStyles.round;
+  [eyeL,eyeR].forEach((e,i)=>{
+    e.style.height=es.h; e.style.borderRadius=es.r; e.style.background=es.bg; e.style.top=es.t;
+    e.style.transform='';
+  });
+  if(f.eyes==='wink'){ eyeR.style.height='5px'; eyeR.style.borderRadius='10px'; eyeR.style.top='44px'; }
+  // brows
+  const browL=$('#browL'),browR=$('#browR');
+  const browStyles={
+    flat:{h:'4px',rot:0,t:'30px'}, thick:{h:'7px',rot:0,t:'29px'},
+    arch:{h:'5px',rot:12,t:'29px'}, soft:{h:'4px',rot:6,t:'30px'},
+  };
+  const bs=browStyles[f.brow]||browStyles.soft;
+  browL.style.height=bs.h; browR.style.height=bs.h;
+  browL.style.top=bs.t; browR.style.top=bs.t;
+  browL.style.transform=`rotate(${bs.rot}deg)`; browR.style.transform=`rotate(${-bs.rot}deg)`;
+  // mouth
+  const m=$('#mouth');
+  const mouthStyles={
+    smile:{w:'18px',h:'9px',r:'0 0 12px 12px',bg:'#C2455B',extra:''},
+    open:{w:'20px',h:'14px',r:'0 0 14px 14px',bg:'#C2455B',extra:'inset 0 -5px 0 #E98AA0'},
+    tongue:{w:'18px',h:'12px',r:'0 0 12px 12px',bg:'#C2455B',extra:'0 5px 0 -1px #F58AA0'},
+    o:{w:'12px',h:'14px',r:'50%',bg:'#9C2E45',extra:''},
+  };
+  const ms=mouthStyles[f.mouth]||mouthStyles.smile;
+  m.style.width=ms.w; m.style.height=ms.h; m.style.borderRadius=ms.r; m.style.background=ms.bg;
+  m.style.boxShadow=ms.extra;
+  // glasses
+  const g=$('#glasses');
+  if(f.glasses==='none'){ g.style.opacity=0; }
+  else{
+    g.style.opacity=1;
+    const spans=g.querySelectorAll('span');
+    if(f.glasses==='sun'){ spans.forEach(s=>{s.style.background='#222';s.style.borderColor='#222';s.style.borderRadius='6px';}); }
+    else if(f.glasses==='round'){ spans.forEach(s=>{s.style.background='rgba(120,180,255,.25)';s.style.borderColor='#7D49F2';s.style.borderRadius='50%';}); }
+    else if(f.glasses==='goggle'){ spans.forEach(s=>{s.style.background='rgba(53,185,244,.3)';s.style.borderColor='#35B9F4';s.style.borderRadius='8px';}); }
+  }
+  // cheek
+  const op=f.cheek?1:0;
+  $('#cheekL').style.opacity=op; $('#cheekR').style.opacity=op;
+}
+
+/* ---------- SCENE ---------- */
+function renderScene(){
+  const bg = [...BG_PRESETS, ...state.genPresets.bg].find(b=>b.id===state.bg) || BG_PRESETS[0];
+  const sc=$('#scene');
+  sc.className='scene '+(bg.scene||'studio');
+  if(bg.gradient) sc.style.background=bg.gradient; else sc.style.background='';
+  // emoji ambiance
+  const em=$('#sceneEmoji');
+  const map={f1:'🏁🏎️🏟️',night:'🌃✨🎆',sea:'🌊⛵🏖️',sakura:'🌸🌸🌸',studio:'✨💫⭐'};
+  const set=(bg.scene&&map[bg.scene])||bg.emoji||'✨';
+  em.innerHTML=[...set].map(e=>`<span>${e}</span>`).join('');
+}
+
+/* ---------- CANVAS ELEMENTS (ornaments + holds) ---------- */
+function renderElements(){
+  // remove existing
+  $$('.ornament,.handheld').forEach(n=>n.remove());
+  const stage=$('#stage');
+  state.ornaments.forEach(o=>{
+    const d=document.createElement('div');
+    d.className='ornament'; d.dataset.type='ornament'; d.dataset.id=o.id;
+    d.style.left=o.x+'%'; d.style.bottom=o.y+'px';
+    if(o.scale) d.style.transform=`scale(${o.scale})`;
+    d.innerHTML=`<div class="oico">${o.emoji}</div>`+(o.name?`<div class="oplate">${o.name}</div>`:'');
+    stage.insertBefore(d, $('#selbox'));
+    d.addEventListener('click',ev=>{ev.stopPropagation();selectEl('ornament',o.id,d);});
+  });
+  state.holds.forEach(h=>{
+    const d=document.createElement('div');
+    d.className='handheld'; d.dataset.type='hold'; d.dataset.id=h.id;
+    d.style.left=h.x+'%'; d.style.top=(h.y)+'%';
+    if(h.scale) d.style.transform=`scale(${h.scale})`;
+    d.textContent=h.emoji;
+    stage.insertBefore(d, $('#selbox'));
+    d.addEventListener('click',ev=>{ev.stopPropagation();selectEl('hold',h.id,d);});
+  });
+}
+
+/* ---------- SELECTION ---------- */
+function selectEl(type,id,node){
+  state.selected={type,id};
+  const box=$('#selbox');
+  const stage=$('#stage');
+  const sr=stage.getBoundingClientRect();
+  const nr=node.getBoundingClientRect();
+  const pad=8;
+  box.style.display='block';
+  box.style.left=(nr.left-sr.left-pad)+'px';
+  box.style.top=(nr.top-sr.top-pad)+'px';
+  box.style.width=(nr.width+pad*2)+'px';
+  box.style.height=(nr.height+pad*2)+'px';
+  // delete enabled only for removable elements
+  $('#selDel').style.display = (type==='doll')?'none':'flex';
+  $('#hint').style.opacity=0;
+}
+function deselect(){
+  state.selected=null;
+  $('#selbox').style.display='none';
+  $('#hint').style.opacity=1;
+}
+function deleteSelected(){
+  if(!state.selected) return;
+  const {type,id}=state.selected;
+  let removed;
+  if(type==='ornament'){
+    removed=state.ornaments.find(o=>o.id===id);
+    state.ornaments=state.ornaments.filter(o=>o.id!==id);
+    toast(`删除摆件，价格 −¥${removed.price}`);
+  } else if(type==='hold'){
+    removed=state.holds.find(h=>h.id===id);
+    state.holds=state.holds.filter(h=>h.id!==id);
+    toast(`删除手持物，价格 −¥${removed.price}`);
+  }
+  deselect();
+  snapshot();
+  renderElements(); renderPrice(removed?-removed.price:0); renderPanel();
+}
+
+/* =========================================================
+   PANEL RENDERING
+   ========================================================= */
+function renderPanel(){
+  const panel=$('#panel');
+  if(state.tab==='face') panel.innerHTML=panelFace();
+  else panel.innerHTML=panelGen(state.tab);
+  bindPanel();
+}
+
+/* --- expression panel --- */
+function panelFace(){
+  const subs = FACE_SUBTABS.map(k=>{
+    const label = k==='layer'?'图层':FACE_DATA[k].label;
+    return `<button class="chip ${state.faceSub===k?'active':''}" data-sub="${k}">${label}</button>`;
+  }).join('');
+  let body;
+  if(state.faceSub==='layer'){
+    body=layerHTML();
+  }else{
+    const cur=FACE_DATA[state.faceSub];
+    body='<div class="reel">'+cur.presets.map(p=>{
+      const active=isFaceActive(p);
+      return `<div class="pcard ${active?'active':''}" data-face='${JSON.stringify(p)}'>
+        <div class="pthumb facethumb">${faceMini(p)}${p.badge?`<span class="pnew">${p.badge}</span>`:''}</div>
+        <div class="plabel">${p.name}</div>
+        ${active&&state.faceSub==='recommend'?'<span class="pedit">编辑配件</span>':''}
+      </div>`;
+    }).join('')+'</div>';
+  }
+  return `<div class="subtabs">${subs}</div>${body}`;
+}
+function faceMini(p){
+  // build a tiny face preview
+  const eyes = p.eyes || (p.id&&FACE_DATA.recommend.presets.find(x=>x.id===p.id)?.eyes) || state.face.eyes;
+  const mouth = p.mouth || state.face.mouth;
+  const brow = p.brow;
+  let inner='<div class="ft-eye l"></div><div class="ft-eye r"></div><div class="ft-mouth"></div>';
+  if(brow) inner+='<div class="ft-brow l"></div><div class="ft-brow r"></div>';
+  if(p.glasses==='sun') return '🕶️';
+  if(p.glasses==='round') return '👓';
+  if(p.glasses==='goggle') return '🥽';
+  if(p.glasses==='none') return '🚫';
+  if(p.sticker==='blush') return '😊';
+  if(p.sticker==='tear') return '🥲';
+  if(p.sticker==='star') return '🤩';
+  if(p.sticker==='heart') return '😍';
+  return inner;
+}
+function isFaceActive(p){
+  if(state.faceSub==='recommend') return state.face.facePreset===p.id;
+  if(p.eyes) return state.face.eyes===p.eyes;
+  if(p.brow) return state.face.brow===p.brow;
+  if(p.mouth) return state.face.mouth===p.mouth;
+  if(p.glasses) return state.face.glasses===p.glasses;
+  if(p.sticker) return state.face.sticker===p.sticker;
+  return false;
+}
+
+/* --- generative panel (bg / ornament / hold) --- */
+function panelGen(tab){
+  const cfg={
+    bg:{ph:'描述你想要的背景画面，如：F1 赛道、霓虹夜景…', cost:GEN_COST.bg, presets:BG_PRESETS},
+    ornament:{ph:'描述要添加的摆件，如：冠军奖杯、复古相机…', cost:GEN_COST.ornament, presets:ORN_PRESETS},
+    hold:{ph:'描述手持道具，如：足球、冠军旗、话筒…', cost:GEN_COST.hold, presets:HOLD_PRESETS},
+  }[tab];
+  const all=[...cfg.presets, ...state.genPresets[tab]];
+  const reel=all.map(p=>presetCardHTML(tab,p)).join('');
+  return `
+    <div class="airow">
+      <div class="aiinput"><span class="ci">☁︎</span>
+        <input id="genInput" placeholder="${cfg.ph}">
+      </div>
+      <button class="gen-btn" id="genBtn">生成</button>
+    </div>
+    <div class="costtag">✦ 每次生成消耗灵感值 <b>${cfg.cost}</b> · 描述越详细效果越好</div>
+    <div class="reel" id="reel">${reel}</div>`;
+}
+function presetCardHTML(tab,p){
+  let active=false;
+  if(tab==='bg') active = state.bg===p.id;
+  else if(tab==='ornament') active = state.ornaments.some(o=>o.id===p.id);
+  else if(tab==='hold') active = state.holds.some(h=>h.id===p.id);
+  return `<div class="pcard ${active?'active':''}" data-id="${p.id}" data-tab="${tab}">
+    <div class="pthumb">${p.emoji}${p.badge?`<span class="pnew">${p.badge}</span>`:''}</div>
+    <div class="plabel">${p.name}</div>
+    ${active?'<span class="pedit">编辑配件</span>':''}
+  </div>`;
+}
+
+/* --- layer panel --- */
+function layerHTML(){
+  const layers=[
+    {t:'doll', name:'玩偶主体', emoji:'🧒', lock:true},
+    ...state.holds.map(h=>({t:'hold',id:h.id,name:h.name,emoji:h.emoji})),
+    ...state.ornaments.map(o=>({t:'ornament',id:o.id,name:o.name,emoji:o.emoji})),
+    {t:'bg', name:'背景 · '+( [...BG_PRESETS,...state.genPresets.bg].find(b=>b.id===state.bg)?.name||''), emoji:'🖼️', lock:true},
+  ];
+  if(!layers.length) return '<div class="layer-empty">暂无图层</div>';
+  return '<div class="layerlist">'+layers.map(l=>`
+    <div class="layeritem">
+      ${l.lock?'<span style="width:24px;text-align:center">🔒</span>':`<button class="del" data-ltype="${l.t}" data-lid="${l.id}">−</button>`}
+      <div class="lthumb">${l.emoji}</div>
+      <div class="lname">${l.name}</div>
+      <span class="drag">≡</span>
+    </div>`).join('')+'</div>';
+}
+
+/* ---------- PANEL BINDINGS ---------- */
+function bindPanel(){
+  // sub tabs (face)
+  $$('.subtabs .chip').forEach(c=>c.addEventListener('click',()=>{
+    state.faceSub=c.dataset.sub; renderPanel();
+  }));
+  // face presets
+  $$('.pcard[data-face]').forEach(c=>c.addEventListener('click',()=>{
+    const p=JSON.parse(c.dataset.face);
+    applyFacePreset(p);
+    if(state.faceSub==='recommend') state.face.facePreset=p.id;
+    snapshot(); renderFace(); renderPanel();
+    toast('已应用 · '+p.name);
+  }));
+  // generative presets
+  $$('.pcard[data-id]').forEach(c=>c.addEventListener('click',()=>onPresetTap(c.dataset.tab,c.dataset.id)));
+  // generate button
+  const gb=$('#genBtn'); if(gb) gb.addEventListener('click',()=>doGenerate(state.tab));
+  const gi=$('#genInput'); if(gi) gi.addEventListener('keydown',e=>{if(e.key==='Enter')doGenerate(state.tab);});
+  // layer delete
+  $$('.layeritem .del').forEach(b=>b.addEventListener('click',()=>{
+    const t=b.dataset.ltype,id=b.dataset.lid;
+    if(t==='ornament'){state.selected={type:'ornament',id};}
+    else if(t==='hold'){state.selected={type:'hold',id};}
+    deleteSelected();
+  }));
+}
+
+/* ---------- PRESET TAP (apply/toggle) ---------- */
+function onPresetTap(tab,id){
+  if(tab==='bg'){
+    state.bg=id; snapshot(); renderScene(); renderPanel();
+    const name=[...BG_PRESETS,...state.genPresets.bg].find(b=>b.id===id)?.name;
+    toast('已切换背景 · '+name);
+    return;
+  }
+  const list = tab==='ornament'?state.ornaments:state.holds;
+  const source = tab==='ornament'?[...ORN_PRESETS,...state.genPresets.ornament]:[...HOLD_PRESETS,...state.genPresets.hold];
+  const def=source.find(p=>p.id===id);
+  const exists=list.some(x=>x.id===id);
+  if(exists){
+    // remove
+    if(tab==='ornament') state.ornaments=state.ornaments.filter(o=>o.id!==id);
+    else state.holds=state.holds.filter(h=>h.id!==id);
+    snapshot(); renderElements(); renderPrice(-def.price); renderPanel();
+    toast(`移除${tab==='ornament'?'摆件':'手持物'} · −¥${def.price}`);
+  }else{
+    // add at a default spot
+    const pos = tab==='ornament'
+      ? {x: 30+Math.round(state.ornaments.length*8), y:64}
+      : {x: 26+Math.round(state.holds.length*10), y:22};
+    const item={id:def.id,name:def.name,emoji:def.emoji,price:def.price,...pos};
+    if(tab==='ornament') state.ornaments.push(item); else state.holds.push(item);
+    snapshot(); renderElements(); renderPrice(def.price); renderPanel();
+    toast(`已添加${tab==='ornament'?'摆件':'手持物'} · +¥${def.price}`);
+  }
+  deselect();
+}
+
+/* ---------- AI GENERATE (simulated) ---------- */
+let genBusy=false;
+function doGenerate(tab){
+  if(genBusy) return;
+  const input=$('#genInput');
+  const text=(input.value||'').trim();
+  const cost=GEN_COST[tab];
+  if(!text){ toast('请先描述你想要的画面'); input.focus(); return; }
+  if(state.insp<cost){ toast('灵感值不足，去做任务补充吧'); return; }
+  genBusy=true;
+  // deduct
+  state.insp-=cost; renderInsp();
+  toast(`✦ 灵感值 −${cost} 已扣除`);
+  // build a generating card at front of reel
+  const reel=$('#reel');
+  const card=document.createElement('div');
+  card.className='pcard';
+  const newId='gen_'+tab+'_'+(state.genPresets[tab].length+1)+'_'+Math.round(state.insp);
+  card.dataset.gen=newId;
+  card.innerHTML=`<div class="pthumb loading">
+      <div class="ring">
+        <svg viewBox="0 0 78 78"><circle class="bg" cx="39" cy="39" r="34"></circle>
+        <circle class="fg" cx="39" cy="39" r="34" stroke-dasharray="${2*Math.PI*34}" stroke-dashoffset="${2*Math.PI*34}"></circle></svg>
+        <span class="pct">0%</span>
+      </div></div>
+    <div class="plabel">生成中…</div>`;
+  reel.insertBefore(card, reel.firstChild);
+  reel.scrollLeft=0;
+  // animate 25 -> 50 -> 75 -> 100
+  const steps=[25,50,75,100];
+  const fg=card.querySelector('.fg');
+  const pct=card.querySelector('.pct');
+  const C=2*Math.PI*34;
+  let i=0;
+  const tick=()=>{
+    const v=steps[i];
+    pct.textContent=v+'%';
+    fg.style.strokeDashoffset=C*(1-v/100);
+    i++;
+    if(i<steps.length){ setTimeout(tick,520); }
+    else { setTimeout(()=>finishGen(tab,text,newId),520); }
+  };
+  setTimeout(tick,260);
+}
+function finishGen(tab,text,id){
+  genBusy=false;
+  // craft a preset from the text
+  const name = text.length>5?text.slice(0,5):text;
+  const emojiByTab={
+    bg:{scene:'studio',emoji:'🌌'},
+    ornament:{emoji:'🎁',price:10},
+    hold:{emoji:'🎈',price:20},
+  };
+  let preset;
+  if(tab==='bg'){
+    preset={id,name,scene:'studio',emoji:'🌌',gradient:'linear-gradient(150deg,#ECE3FF,#C7EEFF,#FFD1E2)',badge:'新'};
+  }else if(tab==='ornament'){
+    preset={id,name,emoji:'🎁',price:10,badge:'新'};
+  }else{
+    preset={id,name,emoji:'🎈',price:20,badge:'新'};
+  }
+  state.genPresets[tab].unshift(preset);
+  snapshot();
+  renderPanel();
+  toast('✨ 生成完成 · 点击应用');
+}
+
+/* =========================================================
+   MAIN TABS
+   ========================================================= */
+function setTab(t){
+  state.tab=t;
+  $$('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  deselect();
+  renderPanel();
+}
+
+/* ---------- TOAST ---------- */
+let toastTimer;
+function toast(msg){
+  const wrap=$('#toastWrap');
+  const t=document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  wrap.innerHTML=''; wrap.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{t.style.transition='opacity .3s';t.style.opacity=0;setTimeout(()=>t.remove(),300);},1500);
+}
+
+/* ---------- SHEETS ---------- */
+function openSheet(id){$('#'+id).classList.add('show');}
+function closeSheet(id){$('#'+id).classList.remove('show');}
+window.closeSheet=closeSheet;
+window.toast=toast;
+
+function buildOrder(){
+  const rows=[];
+  rows.push({k:'🧒 玩偶主体',v:'¥'+BASE_PRICE});
+  const bgName=[...BG_PRESETS,...state.genPresets.bg].find(b=>b.id===state.bg)?.name;
+  rows.push({k:'🖼️ 背景 · '+bgName,v:'已含'});
+  state.holds.forEach(h=>rows.push({k:'🤾 手持物 · '+h.name,v:'+¥'+h.price}));
+  state.ornaments.forEach(o=>rows.push({k:'🧩 摆件 · '+o.name,v:'+¥'+o.price}));
+  $('#orderRows').innerHTML=rows.map(r=>`<div class="orow"><span class="k">${r.k}</span><span class="v">${r.v}</span></div>`).join('');
+  recalcPrice();
+  $('#orderTotal').textContent=state.price;
+}
+
+/* =========================================================
+   MODE (simple / expert)
+   ========================================================= */
+function setMode(mode){
+  if(mode==='simple'){
+    document.body.classList.add('simple');
+    document.body.classList.remove('expert');
+    $('#modeSwitch').classList.remove('on');
+    $('#toggleModeRow').querySelector('.mt').textContent='傻瓜模式';
+    $('#toggleModeRow').querySelector('.ms').textContent='AI 自动搭配，3 步完成';
+    deselect();
+  }else{
+    document.body.classList.remove('simple');
+    document.body.classList.add('expert');
+    $('#modeSwitch').classList.add('on');
+    $('#toggleModeRow').querySelector('.mt').textContent='专家模式';
+    $('#toggleModeRow').querySelector('.ms').textContent='开启 PRO 编辑，呈现更多组件';
+  }
+}
+
+/* ---------- REROLL (simple mode AI re-match) ---------- */
+const REROLL_SETS=[
+  {bg:'night', face:{eyes:'star',brow:'arch',mouth:'open',glasses:'sun',cheek:true,facePreset:'wit'}, hero:'mic'},
+  {bg:'sea',   face:{eyes:'calm',brow:'soft',mouth:'smile',glasses:'none',cheek:true,facePreset:'biz'}, hero:'flower'},
+  {bg:'sakura',face:{eyes:'round',brow:'soft',mouth:'open',glasses:'round',cheek:true,facePreset:'cute'}, hero:'flag'},
+  {bg:'f1',    face:{eyes:'round',brow:'soft',mouth:'open',glasses:'none',cheek:true,facePreset:'cute'}, hero:'ball'},
+];
+let rerollIdx=0;
+function reroll(){
+  rerollIdx=(rerollIdx+1)%REROLL_SETS.length;
+  const s=REROLL_SETS[rerollIdx];
+  state.bg=s.bg;
+  state.face={...state.face,...s.face};
+  // swap handheld
+  const h=HOLD_PRESETS.find(x=>x.id===s.hero);
+  if(h) state.holds=[{id:h.id,name:h.name,emoji:h.emoji,price:h.price,x:28,y:20}];
+  snapshot();
+  renderAll();
+  toast('🪄 AI 重新搭配完成');
+}
+
+/* =========================================================
+   RENDER ALL
+   ========================================================= */
+function renderAll(){
+  renderScene(); renderFace(); renderElements();
+  renderPrice(); renderInsp(); renderPanel(); updateUndoRedo();
+}
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+$$('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+$('#stage').addEventListener('click',deselect);
+$('#doll').addEventListener('click',e=>{e.stopPropagation();selectEl('doll','doll',$('#doll'));
+  toast('点击下方「表情」可编辑五官');setTab('face');});
+$('#selDel').addEventListener('click',e=>{e.stopPropagation();deleteSelected();});
+$('#undoBtn').addEventListener('click',undo);
+$('#redoBtn').addEventListener('click',redo);
+
+$('#confirmBtn').addEventListener('click',()=>{buildOrder();openSheet('orderOverlay');});
+$('#simpleOrder').addEventListener('click',()=>{buildOrder();openSheet('orderOverlay');});
+$('#rerollBtn').addEventListener('click',reroll);
+$('#payBtn').addEventListener('click',()=>{closeSheet('orderOverlay');toast('✅ 下单成功，开始制作实体玩偶');});
+$('#publishBtn').addEventListener('click',()=>{closeSheet('orderOverlay');openSheet('pubOverlay');});
+$('#share-btn').addEventListener('click',()=>openSheet('pubOverlay'));
+$('#menu-btn').addEventListener('click',()=>openSheet('menuOverlay'));
+$('#back-btn').addEventListener('click',()=>{$('#onboard').classList.remove('hide');});
+
+$('#toggleModeRow').addEventListener('click',()=>{
+  const on=$('#modeSwitch').classList.contains('on');
+  setMode(on?'simple':'expert');
+});
+$('#favRow').addEventListener('click',()=>{closeSheet('menuOverlay');toast('⭐ 已收藏当前搭配');});
+$('#draftRow').addEventListener('click',()=>{closeSheet('menuOverlay');toast('💾 草稿已保存');});
+$('#resetRow').addEventListener('click',()=>{closeSheet('menuOverlay');resetWork();});
+// close overlays on backdrop tap
+$$('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show');}));
+
+function resetWork(){
+  state.face={eyes:'round',brow:'soft',mouth:'open',glasses:'none',sticker:'blush',cheek:true,facePreset:'cute'};
+  state.bg='f1';
+  state.ornaments=[{id:'hero',name:'奥特曼',emoji:'🦸',x:24,y:58,price:10},{id:'car',name:'红色赛车',emoji:'🏎️',x:40,y:74,price:10}];
+  state.holds=[{id:'ball',name:'足球',emoji:'⚽',x:30,y:18,price:20}];
+  snapshot(); renderAll(); toast('🔄 已重置作品');
+}
+
+/* onboarding */
+let chosenMode='expert';
+$('#mode-simple').addEventListener('click',()=>{chosenMode='simple';
+  $('#mode-simple').classList.add('sel');$('#mode-expert').classList.remove('sel');});
+$('#mode-expert').addEventListener('click',()=>{chosenMode='expert';
+  $('#mode-expert').classList.add('sel');$('#mode-simple').classList.remove('sel');});
+$('#enter-btn').addEventListener('click',()=>{
+  $('#onboard').classList.add('hide');
+  setMode(chosenMode);
+});
+
+/* INIT */
+renderAll();
+updateUndoRedo();
+// reselect handles reposition on resize
+window.addEventListener('resize',()=>{if(state.selected){const{type,id}=state.selected;
+  const node=type==='doll'?$('#doll'):document.querySelector(`[data-type="${type}"][data-id="${id}"]`);
+  if(node) selectEl(type,id,node);}});
+</script>
+</body>
+</html>
